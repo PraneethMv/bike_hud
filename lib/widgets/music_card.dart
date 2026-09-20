@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/hud_theme.dart';
 import 'hud_card.dart';
-import 'equalizer_bars.dart';
 
 class MusicCard extends StatefulWidget {
   final String title;
@@ -38,14 +37,22 @@ class MusicCard extends StatefulWidget {
   State<MusicCard> createState() => _MusicCardState();
 }
 
-class _MusicCardState extends State<MusicCard> {
+class _MusicCardState extends State<MusicCard> with SingleTickerProviderStateMixin {
   Timer? _playbackTimer;
-  int _positionSeconds = 84; // Initial simulated position (1:24)
-  final int _durationSeconds = 220; // 3:40
+  int _positionSeconds = 84;
+  final int _durationSeconds = 220;
+  late AnimationController _discAnimController;
 
   @override
   void initState() {
     super.initState();
+    _discAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+    if (widget.isPlaying && widget.phoneConnected) {
+      _discAnimController.repeat();
+    }
     _startTimerIfNeeded();
   }
 
@@ -53,10 +60,18 @@ class _MusicCardState extends State<MusicCard> {
   void didUpdateWidget(covariant MusicCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.title != widget.title) {
-      // Reset position on track change
       setState(() {
         _positionSeconds = 0;
       });
+    }
+    if (widget.isPlaying && widget.phoneConnected) {
+      if (!_discAnimController.isAnimating) {
+        _discAnimController.repeat();
+      }
+    } else {
+      if (_discAnimController.isAnimating) {
+        _discAnimController.stop();
+      }
     }
     _startTimerIfNeeded();
   }
@@ -79,6 +94,7 @@ class _MusicCardState extends State<MusicCard> {
   @override
   void dispose() {
     _playbackTimer?.cancel();
+    _discAnimController.dispose();
     super.dispose();
   }
 
@@ -98,10 +114,18 @@ class _MusicCardState extends State<MusicCard> {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.phone_android_rounded,
-                  size: 14,
-                  color: widget.theme.textFaint,
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: widget.theme.surfaceContainerHigh,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.phonelink_erase_rounded,
+                    size: 14,
+                    color: widget.theme.outline,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -110,10 +134,10 @@ class _MusicCardState extends State<MusicCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: widget.theme.textDim,
+                      letterSpacing: 1.2,
+                      color: widget.theme.onSurfaceVariant,
                       fontFamily: 'Space Grotesk',
                     ),
                   ),
@@ -129,56 +153,80 @@ class _MusicCardState extends State<MusicCard> {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: widget.theme.card2,
+                      color: widget.theme.surfaceContainerHigh,
                       shape: BoxShape.circle,
-                      border: Border.all(color: widget.theme.line),
+                      border: Border.all(
+                        color: widget.theme.outlineVariant.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Icon(
-                      Icons.phonelink_erase_rounded,
+                      Icons.music_off_rounded,
                       size: 24,
-                      color: widget.theme.textFaint,
+                      color: widget.theme.outline,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'No Music Source',
+                    'No Audio Source',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: widget.theme.text,
+                      color: widget.theme.onSurface,
                       fontFamily: 'Space Grotesk',
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Connect your phone to show\nNow Playing and media controls',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: widget.theme.textDim,
-                      fontFamily: 'Space Grotesk',
-                      height: 1.4,
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'Connect phone to show Now Playing & audio controls',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.theme.onSurfaceVariant,
+                        fontFamily: 'Space Grotesk',
+                        height: 1.3,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  OutlinedButton.icon(
-                    onPressed: widget.onConnectTap,
-                    icon: const Icon(Icons.bluetooth_rounded, size: 16),
-                    label: const Text(
-                      'Connect Phone',
-                      style: TextStyle(fontSize: 12, fontFamily: 'Space Grotesk'),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: widget.theme.accent,
-                      side: BorderSide(
-                        color: widget.theme.accent.withValues(alpha: 0.4),
+                  if (widget.onConnectTap != null)
+                    GestureDetector(
+                      onTap: widget.onConnectTap,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: widget.theme.primaryContainer.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: widget.theme.primary.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.settings_bluetooth_rounded,
+                                size: 14,
+                                color: widget.theme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Pair Phone',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.theme.primary,
+                                  fontFamily: 'Space Grotesk',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -188,200 +236,262 @@ class _MusicCardState extends State<MusicCard> {
       );
     }
 
-    final double progress = (_positionSeconds / _durationSeconds).clamp(0.0, 1.0);
-
     return HudCard(
       theme: widget.theme,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              EqualizerBars(isPlaying: widget.isPlaying, theme: widget.theme),
-              const SizedBox(width: 8),
-              Text(
-                'NOW PLAYING',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                  color: widget.theme.textDim,
-                  fontFamily: 'Space Grotesk',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              // Album art thumbnail
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: widget.theme.card2,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: widget.theme.line),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.music_note_rounded,
-                    color: widget.theme.accent,
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: widget.theme.text,
-                        fontFamily: 'Space Grotesk',
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      widget.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: widget.theme.textDim,
-                        fontFamily: 'Space Grotesk',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Progress Bar
-          Container(
-            height: 4,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: widget.theme.track,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: progress,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: widget.theme.accent,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
+          // Header: Now Playing & Bluetooth source badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _formatTime(_positionSeconds),
-                style: TextStyle(
-                  color: widget.theme.textFaint,
-                  fontSize: 11,
-                  fontFamily: 'Space Grotesk',
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: widget.theme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.radio_rounded,
+                      size: 15,
+                      color: widget.theme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Now Playing',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: widget.theme.onSurface,
+                          fontFamily: 'Space Grotesk',
+                        ),
+                      ),
+                      Text(
+                        'Bluetooth Intercom',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: widget.theme.onSurfaceVariant,
+                          fontFamily: 'Space Grotesk',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              Text(
-                _formatTime(_durationSeconds),
-                style: TextStyle(
-                  color: widget.theme.textFaint,
-                  fontSize: 11,
-                  fontFamily: 'Space Grotesk',
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: widget.theme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: widget.theme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  'Spotify',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: widget.theme.primary,
+                    fontFamily: 'Space Grotesk',
+                  ),
                 ),
               ),
             ],
           ),
           const Spacer(),
-          // Media Controls
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.skip_previous_rounded, size: 24),
-                onPressed: widget.onPrevious,
-                color: widget.theme.text,
-              ),
-              const SizedBox(width: 8),
-              // Big circular Play/Pause button
-              GestureDetector(
-                onTap: widget.onPlayPause,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: widget.theme.accent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: widget.theme.accentDim,
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+
+          // Center: Album Art with rotating vinyl badge
+          Center(
+            child: Column(
+              children: [
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: widget.theme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: widget.theme.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Icon(
-                    widget.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    size: 24,
-                    color: widget.theme.accentInk,
+                      child: Icon(
+                        Icons.album_rounded,
+                        size: 42,
+                        color: widget.theme.primary,
+                      ),
+                    ),
+                    if (widget.isPlaying)
+                      RotationTransition(
+                        turns: _discAnimController,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          margin: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: widget.theme.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: widget.theme.outlineVariant,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.motion_photos_on_rounded,
+                            size: 13,
+                            color: widget.theme.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: widget.theme.onSurface,
+                    fontFamily: 'Space Grotesk',
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.skip_next_rounded, size: 24),
-                onPressed: widget.onNext,
-                color: widget.theme.text,
-              ),
-            ],
+                Text(
+                  widget.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: widget.theme.onSurfaceVariant,
+                    fontFamily: 'Space Grotesk',
+                  ),
+                ),
+
+                // M3 Progress Bar
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: _positionSeconds / _durationSeconds,
+                    minHeight: 4,
+                    backgroundColor: widget.theme.surfaceContainerHigh,
+                    valueColor: AlwaysStoppedAnimation<Color>(widget.theme.primary),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatTime(_positionSeconds),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: widget.theme.outline,
+                        fontFamily: 'Space Grotesk',
+                      ),
+                    ),
+                    Text(
+                      _formatTime(_durationSeconds),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: widget.theme.outline,
+                        fontFamily: 'Space Grotesk',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          // Volume Row
+          const Spacer(),
+
+          // Media Controls (Previous, Play/Pause FAB Pill, Next)
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              IconButton(
-                icon: const Icon(Icons.volume_down_rounded, size: 20),
-                onPressed: widget.onVolumeDown,
-                color: widget.theme.textDim,
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
+              _buildMediaButton(
+                icon: Icons.skip_previous_rounded,
+                onTap: widget.onPrevious,
+                isFab: false,
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Volume: ${widget.volume}%',
-                style: TextStyle(
-                  color: widget.theme.textFaint,
-                  fontSize: 12,
-                  fontFamily: 'Space Grotesk',
-                ),
+              _buildMediaButton(
+                icon: widget.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                onTap: widget.onPlayPause,
+                isFab: true,
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.volume_up_rounded, size: 20),
-                onPressed: widget.onVolumeUp,
-                color: widget.theme.textDim,
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
+              _buildMediaButton(
+                icon: Icons.skip_next_rounded,
+                onTap: widget.onNext,
+                isFab: false,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMediaButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isFab,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: isFab ? 48 : 36,
+          height: isFab ? 36 : 36,
+          decoration: BoxDecoration(
+            color: isFab
+                ? widget.theme.primary
+                : widget.theme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: isFab
+                  ? Colors.transparent
+                  : widget.theme.outlineVariant.withValues(alpha: 0.3),
+            ),
+            boxShadow: isFab
+                ? [
+                    BoxShadow(
+                      color: widget.theme.primary.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Icon(
+              icon,
+              size: isFab ? 22 : 18,
+              color: isFab
+                  ? widget.theme.onPrimary
+                  : widget.theme.onSurface,
+            ),
+          ),
+        ),
       ),
     );
   }

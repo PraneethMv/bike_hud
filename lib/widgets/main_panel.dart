@@ -34,9 +34,33 @@ class MainPanel extends StatelessWidget {
     required this.onPhoneConnectionChanged,
     this.onNavTap,
     this.initialShowConnectivity = false,
+    this.themeMode = ThemeMode.dark,
+    this.onThemeModeChanged,
+    this.accentColor = 'blue',
+    this.onAccentColorChanged,
+    this.isRideActive = false,
+    this.rideDurationSeconds = 0,
+    this.rideDistanceKm = 0.0,
+    this.rideAvgSpeed = 0,
+    this.rideMaxSpeed = 0,
+    this.onStartRide,
+    this.onEndRide,
+    this.recentRides,
   });
 
   final bool initialShowConnectivity;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode>? onThemeModeChanged;
+  final String accentColor;
+  final ValueChanged<String>? onAccentColorChanged;
+  final bool isRideActive;
+  final int rideDurationSeconds;
+  final double rideDistanceKm;
+  final int rideAvgSpeed;
+  final int rideMaxSpeed;
+  final VoidCallback? onStartRide;
+  final VoidCallback? onEndRide;
+  final List<Map<String, dynamic>>? recentRides;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +75,13 @@ class MainPanel extends StatelessWidget {
           navigationState: navigationState,
           theme: theme,
           onNavTap: onNavTap,
+          isRideActive: isRideActive,
+          rideDurationSeconds: rideDurationSeconds,
+          rideDistanceKm: rideDistanceKm,
+          rideAvgSpeed: rideAvgSpeed,
+          rideMaxSpeed: rideMaxSpeed,
+          onStartRide: onStartRide,
+          onEndRide: onEndRide,
         );
       case HudScreen.navigation:
         return NavigationPanel(
@@ -65,6 +96,11 @@ class MainPanel extends StatelessWidget {
           phoneConnected: phoneConnected,
           onPhoneConnectionChanged: onPhoneConnectionChanged,
           initialShowConnectivity: initialShowConnectivity,
+          themeMode: themeMode,
+          onThemeModeChanged: onThemeModeChanged,
+          accentColor: accentColor,
+          onAccentColorChanged: onAccentColorChanged,
+          recentRides: recentRides,
         );
     }
   }

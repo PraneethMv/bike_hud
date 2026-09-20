@@ -18,6 +18,8 @@ class TopStatusBar extends StatelessWidget {
   final VoidCallback? onPhoneTap;
   final CallState? callState;
   final VoidCallback? onEndCall;
+  final int speedLimit;
+  final double currentSpeed;
 
   const TopStatusBar({
     super.key,
@@ -35,160 +37,272 @@ class TopStatusBar extends StatelessWidget {
     this.onPhoneTap,
     this.callState,
     this.onEndCall,
+    this.speedLimit = 60,
+    this.currentSpeed = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 38,
-      child: Row(
-        children: [
-          // Left: Weather info
-          Expanded(
-            child: Row(
-              children: [
-                Icon(
-                  Icons.wb_sunny_rounded,
-                  color: theme.accent,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '18°',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: theme.text,
-                    fontFamily: 'Space Grotesk',
-                  ),
-                ),
-                if ((callState == null || !callState!.isActive) &&
-                    (!showMiniMusic || musicTitle == null || musicTitle!.isEmpty)) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    'Clear · feels 16°',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: theme.textDim,
-                      fontFamily: 'Space Grotesk',
-                    ),
-                  ),
-                ],
-                if (callState != null && callState!.isActive) ...[
-                  const SizedBox(width: 14),
-                  Flexible(
-                    child: _buildActiveCallPill(),
-                  ),
-                ] else if (showMiniMusic && musicTitle != null && musicTitle!.isNotEmpty) ...[
-                  const SizedBox(width: 14),
-                  Flexible(
-                    child: _buildMiniMusicPill(),
-                  ),
-                ],
-              ],
-            ),
+    final bool isOverspeed = currentSpeed > speedLimit;
+    final bool hasActiveCall = callState != null && callState!.isActive;
+
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: theme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.outlineVariant.withValues(alpha: 0.3),
+            width: 1,
           ),
-          
-          // Center: Large Clock
-          Text(
-            timeString,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: theme.text,
-              fontFamily: 'Space Grotesk',
-              letterSpacing: -0.5,
-            ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Left Cluster: GPS + Speed Limit + Active Call / Music Pill
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!hasActiveCall)
+                _buildFullGpsChip()
+              else
+                _buildCompactGpsChip(),
+              const SizedBox(width: 8),
+
+              _buildSpeedLimitBadge(isOverspeed),
+
+              if (hasActiveCall) ...[
+                const SizedBox(width: 8),
+                _buildActiveCallPill(),
+              ] else if (showMiniMusic && musicTitle != null && musicTitle!.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                _buildMiniMusicPill(),
+              ],
+            ],
           ),
 
-          // Right: Status chips, Notifications, Theme switcher
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Phone connection chip
-                Tooltip(
-                  message: phoneConnected
-                      ? 'Phone Connected'
-                      : 'Phone Disconnected (Tap for Settings)',
-                  child: GestureDetector(
-                    onTap: onPhoneTap,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: _buildStatusIcon(
-                        phoneConnected ? Icons.phone_android : Icons.phone_android,
-                        phoneConnected ? theme.accent : theme.textFaint,
-                      ),
-                    ),
+          // Center Cluster: Clock & Ambient Weather
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                timeString,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: theme.onSurface,
+                  fontFamily: 'Space Grotesk',
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '•',
+                style: TextStyle(color: theme.outline, fontSize: 13),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.wb_sunny_rounded,
+                size: 14,
+                color: theme.primary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '28°C Sunny',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.onSurfaceVariant,
+                  fontFamily: 'Space Grotesk',
+                ),
+              ),
+            ],
+          ),
+
+          // Right Cluster: Comms, Hardware 12V Aux Power & Theme Toggle
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Helmet Intercom
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: theme.outlineVariant.withValues(alpha: 0.3),
                   ),
                 ),
-                const SizedBox(width: 8),
-                // GPS connection chip
-                _buildStatusIcon(
-                  Icons.gps_fixed,
-                  gpsConnected ? theme.accent : theme.textFaint,
-                ),
-                const SizedBox(width: 14),
-                // Notification bell
-                Stack(
-                  clipBehavior: Clip.none,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.notifications_none_rounded,
-                      color: theme.text,
-                      size: 22,
+                      Icons.headphones_rounded,
+                      size: 13,
+                      color: theme.primary,
                     ),
-                    Positioned(
-                      top: -4,
-                      right: -5,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: theme.accent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 14,
-                          minHeight: 14,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '3',
-                            style: TextStyle(
-                              color: theme.accentInk,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              height: 1.0,
-                            ),
-                          ),
-                        ),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Sena 50S',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: theme.onSurfaceVariant,
+                        fontFamily: 'Space Grotesk',
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(width: 16),
-                // Day/Night Segment Switcher
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: theme.card,
-                    borderRadius: BorderRadius.circular(11),
-                    border: Border.all(color: theme.line),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildThemeSegmentButton(
-                        ThemeMode.light,
-                        Icons.wb_sunny_rounded,
+              ),
+              const SizedBox(width: 6),
+
+              // Phone Battery & Connection
+              GestureDetector(
+                onTap: onPhoneTap,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: phoneConnected
+                            ? theme.primary.withValues(alpha: 0.4)
+                            : theme.outlineVariant.withValues(alpha: 0.3),
                       ),
-                      _buildThemeSegmentButton(
-                        ThemeMode.dark,
-                        Icons.mode_night_rounded,
-                      ),
-                    ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.phone_android_rounded,
+                          size: 13,
+                          color: phoneConnected ? theme.primary : theme.outline,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          phoneConnected ? '85%' : 'Disconnected',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: phoneConnected ? theme.onSurface : theme.outline,
+                            fontFamily: 'Space Grotesk',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(width: 6),
+
+              // 12V AUX Hardware Power Chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: theme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 13,
+                      color: theme.primary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '12V AUX',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: theme.onSurface,
+                        fontFamily: 'Space Grotesk',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // M3 Theme Toggle Button
+              GestureDetector(
+                onTap: () {
+                  onThemeChanged(
+                    themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark,
+                  );
+                },
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: theme.surfaceContainerHigh,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Icon(
+                      themeMode == ThemeMode.dark
+                          ? Icons.wb_sunny_outlined
+                          : Icons.nightlight_round_outlined,
+                      size: 16,
+                      color: theme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullGpsChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: theme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.satellite_alt_rounded,
+            size: 13,
+            color: gpsConnected ? theme.primary : theme.outline,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            'GPS 3D FIX',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: theme.onSurface,
+              fontFamily: 'Space Grotesk',
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '(12 sats)',
+            style: TextStyle(
+              fontSize: 9,
+              color: theme.outline,
+              fontFamily: 'Space Grotesk',
             ),
           ),
         ],
@@ -196,36 +310,67 @@ class TopStatusBar extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIcon(IconData icon, Color color) {
+  Widget _buildCompactGpsChip() {
     return Container(
-      width: 28,
-      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.card,
-        shape: BoxShape.circle,
-        border: Border.all(color: theme.line),
+        color: theme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: theme.outlineVariant.withValues(alpha: 0.3),
+        ),
       ),
-      child: Center(
-        child: Icon(icon, size: 14, color: color),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.satellite_alt_rounded,
+            size: 13,
+            color: gpsConnected ? theme.primary : theme.outline,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '3D FIX',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: theme.onSurface,
+              fontFamily: 'Space Grotesk',
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildThemeSegmentButton(ThemeMode targetMode, IconData icon) {
-    final bool isSelected = themeMode == targetMode;
-    return GestureDetector(
-      onTap: () => onThemeChanged(targetMode),
-      child: Container(
-        width: 34,
-        height: 26,
-        decoration: BoxDecoration(
-          color: isSelected ? theme.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
+  Widget _buildSpeedLimitBadge(bool isOverspeed) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: isOverspeed ? theme.errorContainer : Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isOverspeed ? theme.error : const Color(0xFFBA1A1A),
+          width: 2.2,
         ),
-        child: Icon(
-          icon,
-          size: 14,
-          color: isSelected ? theme.accentInk : theme.textDim,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          '$speedLimit',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            color: isOverspeed ? theme.onErrorContainer : const Color(0xFFBA1A1A),
+            fontFamily: 'Space Grotesk',
+          ),
         ),
       ),
     );
@@ -234,60 +379,37 @@ class TopStatusBar extends StatelessWidget {
   Widget _buildMiniMusicPill() {
     return GestureDetector(
       onTap: onMusicTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: theme.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isPlaying
-                ? theme.accent.withValues(alpha: 0.35)
-                : theme.line,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: theme.surfaceContainer,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: isPlaying
+                  ? theme.primary.withValues(alpha: 0.4)
+                  : theme.outlineVariant.withValues(alpha: 0.3),
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            EqualizerBars(
-              isPlaying: isPlaying,
-              theme: theme,
-            ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 160),
-              child: RichText(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              EqualizerBars(isPlaying: isPlaying, theme: theme),
+              const SizedBox(width: 6),
+              Text(
+                musicTitle ?? 'Playing',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                text: TextSpan(
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    fontSize: 12,
-                    color: theme.text,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: musicTitle ?? '',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    if ((musicArtist ?? '').isNotEmpty) ...[
-                      TextSpan(
-                        text: ' · $musicArtist',
-                        style: TextStyle(color: theme.textDim),
-                      ),
-                    ],
-                  ],
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.onSurface,
+                  fontFamily: 'Space Grotesk',
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -295,85 +417,77 @@ class TopStatusBar extends StatelessWidget {
 
   Widget _buildActiveCallPill() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.surfaceContainer,
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: const Color(0xFF00E5A0).withValues(alpha: 0.5),
+          color: theme.statusGpsOk.withValues(alpha: 0.5),
           width: 1.2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00E5A0).withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFF00E5A0),
-              shape: BoxShape.circle,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: theme.statusGpsOk,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(
-            Icons.phone_in_talk_rounded,
-            color: Color(0xFF00E5A0),
-            size: 15,
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
+            const SizedBox(width: 6),
+            Icon(
+              Icons.phone_in_talk_rounded,
+              color: theme.statusGpsOk,
+              size: 13,
+            ),
+            const SizedBox(width: 5),
+            Text(
               callState?.callerName.isNotEmpty == true
                   ? callState!.callerName
                   : 'Call Active',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: theme.text,
+                color: theme.onSurface,
                 fontFamily: 'Space Grotesk',
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            callState?.formattedDuration ?? '00:00',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF00E5A0),
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Space Grotesk',
+            const SizedBox(width: 6),
+            Text(
+              callState?.formattedDuration ?? '00:00',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.statusGpsOk,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Space Grotesk',
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: 'End Call',
-            child: GestureDetector(
+            const SizedBox(width: 6),
+            GestureDetector(
               onTap: onEndCall,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE53935),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.call_end_rounded,
-                  size: 12,
-                  color: Colors.white,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE53935),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.call_end_rounded,
+                    size: 10,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

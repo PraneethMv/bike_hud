@@ -39,6 +39,8 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
   Timer? _musicSyncTimer;
   Timer? _clockTimer;
   Timer? _callDurationTimer;
+  Timer? _rideCaptureTimer;
+  final List<int> _rideSpeedSamples = [];
   String _timeString = "14:32";
   bool _openConnectivitySettings = false;
 
@@ -141,6 +143,105 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
     _callDurationTimer = null;
   }
 
+  void _startRideCapture() {
+    _rideCaptureTimer?.cancel();
+    _rideSpeedSamples.clear();
+    setState(() {
+      hudState = hudState.copyWith(
+        isRideActive: true,
+        rideDurationSeconds: 0,
+        rideDistanceKm: 0.0,
+        rideAvgSpeed: 0,
+        rideMaxSpeed: 0,
+      );
+    });
+
+    _rideCaptureTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !hudState.isRideActive) return;
+
+      final currentSpeed = hudState.speed;
+      _rideSpeedSamples.add(currentSpeed);
+
+      final newDuration = hudState.rideDurationSeconds + 1;
+      final double distInc = currentSpeed > 0 ? (currentSpeed / 3600.0) : 0.005;
+      final newDist = hudState.rideDistanceKm + distInc;
+      final newMax = currentSpeed > hudState.rideMaxSpeed ? currentSpeed : hudState.rideMaxSpeed;
+      final avgSpeed = _rideSpeedSamples.isEmpty
+          ? currentSpeed
+          : (_rideSpeedSamples.reduce((a, b) => a + b) / _rideSpeedSamples.length).round();
+
+      setState(() {
+        hudState = hudState.copyWith(
+          rideDurationSeconds: newDuration,
+          rideDistanceKm: newDist,
+          rideMaxSpeed: newMax,
+          rideAvgSpeed: avgSpeed > 0 ? avgSpeed : currentSpeed,
+        );
+      });
+    });
+  }
+
+  void _endRideCapture() {
+    _rideCaptureTimer?.cancel();
+    _rideCaptureTimer = null;
+
+    final now = DateTime.now();
+    final String formattedDate = 'Today, ${_formatRideTime(now)}';
+    final String durationStr = _formatRideDuration(hudState.rideDurationSeconds);
+    final double distFinal = double.parse(hudState.rideDistanceKm.toStringAsFixed(1));
+    final int topFinal = hudState.rideMaxSpeed > 0 ? hudState.rideMaxSpeed : hudState.speed;
+    final int avgFinal = hudState.rideAvgSpeed > 0 ? hudState.rideAvgSpeed : (topFinal * 0.65).round();
+
+    final newRide = {
+      'title': 'Ride #${hudState.recentRides.length + 1}',
+      'date': formattedDate,
+      'duration': durationStr,
+      'distanceKm': distFinal > 0 ? distFinal : 0.8,
+      'avgSpeedKm': avgFinal > 0 ? avgFinal : 32,
+      'topSpeedKm': topFinal > 0 ? topFinal : 45,
+    };
+
+    setState(() {
+      hudState = hudState.copyWith(
+        isRideActive: false,
+        recentRides: [newRide, ...hudState.recentRides],
+      );
+    });
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Ride #${hudState.recentRides.length} saved! Added to Ride Statistics in Settings.',
+          style: const TextStyle(fontFamily: 'Space Grotesk'),
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        backgroundColor: hudState.theme.primaryContainer,
+      ),
+    );
+  }
+
+  String _formatRideDuration(int totalSeconds) {
+    if (totalSeconds < 60) {
+      return '$totalSeconds sec';
+    }
+    final mins = totalSeconds ~/ 60;
+    final hours = mins ~/ 60;
+    final remMins = mins % 60;
+    if (hours > 0) {
+      return '${hours}h ${remMins}m';
+    }
+    return '$mins min';
+  }
+
+  String _formatRideTime(DateTime dt) {
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$min $amPm';
+  }
+
   @override
   void dispose() {
     _gpsSimulatorService.stop();
@@ -148,6 +249,7 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
     _musicSyncTimer?.cancel();
     _clockTimer?.cancel();
     _callDurationTimer?.cancel();
+    _rideCaptureTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -295,6 +397,8 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
                       },
                       timeString: _timeString,
                       callState: hudState.callState,
+                      currentSpeed: hudState.speed.toDouble(),
+                      speedLimit: 60,
                       onEndCall: () {
                         _stopCallDurationTimer();
                         setState(() {
@@ -335,6 +439,18 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
                               tripDistanceKm: hudState.tripDistanceKm,
                               navigationState: hudState.navigationState,
                               theme: theme,
+                              themeMode: hudState.themeMode,
+                              onThemeModeChanged: (mode) {
+                                setState(() {
+                                  hudState = hudState.copyWith(themeMode: mode);
+                                });
+                              },
+                              accentColor: hudState.accentColor,
+                              onAccentColorChanged: (accent) {
+                                setState(() {
+                                  hudState = hudState.copyWith(accentColor: accent);
+                                });
+                              },
                               phoneConnected: hudState.phoneConnected,
                               initialShowConnectivity: _openConnectivitySettings,
                               onPhoneConnectionChanged: (connected) {
@@ -347,6 +463,14 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
                                   hudState = hudState.copyWith(currentScreen: HudScreen.navigation);
                                 });
                               },
+                              isRideActive: hudState.isRideActive,
+                              rideDurationSeconds: hudState.rideDurationSeconds,
+                              rideDistanceKm: hudState.rideDistanceKm,
+                              rideAvgSpeed: hudState.rideAvgSpeed,
+                              rideMaxSpeed: hudState.rideMaxSpeed,
+                              onStartRide: _startRideCapture,
+                              onEndRide: _endRideCapture,
+                              recentRides: hudState.recentRides,
                             ),
                           ),
                           if (hudState.currentScreen == HudScreen.dashboard) ...[
