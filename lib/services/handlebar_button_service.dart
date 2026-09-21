@@ -11,6 +11,7 @@ enum HandlebarAction {
   simulateIncomingCall,
   openHome,
   openNavigation,
+  openRides,
   openDocuments,
   openSettings,
 }
@@ -63,8 +64,8 @@ class HandlebarButtonService {
       return HandlebarAction.openNavigation;
     }
 
-    if (key == LogicalKeyboardKey.keyD) {
-      return HandlebarAction.openDocuments;
+    if (key == LogicalKeyboardKey.keyR || key == LogicalKeyboardKey.keyD) {
+      return HandlebarAction.openRides;
     }
 
     if (key == LogicalKeyboardKey.keyS) {

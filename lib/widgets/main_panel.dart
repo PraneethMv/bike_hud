@@ -4,7 +4,7 @@ import '../models/navigation_state.dart';
 import '../models/hud_theme.dart';
 import 'dashboard_panel.dart';
 import 'navigation_panel.dart';
-import 'documents_panel.dart';
+import 'rides_panel.dart';
 import 'settings_panel.dart';
 
 class MainPanel extends StatelessWidget {
@@ -46,6 +46,12 @@ class MainPanel extends StatelessWidget {
     this.onStartRide,
     this.onEndRide,
     this.recentRides,
+    this.userName = 'Praneeth',
+    this.fuelRecords,
+    this.currentOdoKm,
+    this.onRecordRefuel,
+    this.fuelTankCapacityLiters = 13.5,
+    this.onOdoUpdated,
   });
 
   final bool initialShowConnectivity;
@@ -61,6 +67,12 @@ class MainPanel extends StatelessWidget {
   final VoidCallback? onStartRide;
   final VoidCallback? onEndRide;
   final List<Map<String, dynamic>>? recentRides;
+  final String userName;
+  final List<Map<String, dynamic>>? fuelRecords;
+  final double? currentOdoKm;
+  final void Function(double liters, double lastOdo, double currentOdo)? onRecordRefuel;
+  final double fuelTankCapacityLiters;
+  final ValueChanged<double>? onOdoUpdated;
 
   @override
   Widget build(BuildContext context) {
@@ -88,8 +100,15 @@ class MainPanel extends StatelessWidget {
           navigationState: navigationState,
           theme: theme,
         );
-      case HudScreen.documents:
-        return DocumentsPanel(theme: theme);
+      case HudScreen.rides:
+        return RidesPanel(
+          theme: theme,
+          recentRides: recentRides,
+          fuelRecords: fuelRecords,
+          currentOdoKm: currentOdoKm,
+          phoneConnected: phoneConnected,
+          onRecordRefuel: onRecordRefuel,
+        );
       case HudScreen.settings:
         return SettingsPanel(
           theme: theme,
@@ -101,6 +120,10 @@ class MainPanel extends StatelessWidget {
           accentColor: accentColor,
           onAccentColorChanged: onAccentColorChanged,
           recentRides: recentRides,
+          userName: userName,
+          fuelTankCapacityLiters: fuelTankCapacityLiters,
+          currentOdoKm: currentOdoKm ?? 14820.0,
+          onOdoUpdated: onOdoUpdated,
         );
     }
   }

@@ -1,1 +1,1 @@
-enum HudScreen { dashboard, navigation, documents, settings }
+enum HudScreen { dashboard, navigation, rides, settings }

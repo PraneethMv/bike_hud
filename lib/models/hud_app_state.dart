@@ -16,6 +16,7 @@ class HudAppState {
   final bool phoneConnected;
   final ThemeMode themeMode;
   final String accentColor;
+  final String userName;
 
   final MusicState musicState;
   final HudScreen currentScreen;
@@ -29,6 +30,38 @@ class HudAppState {
   final int rideAvgSpeed;
   final int rideMaxSpeed;
   final List<Map<String, dynamic>> recentRides;
+
+  // Mileage & Fuel Tracking State
+  final double totalOdoKm;
+  final List<Map<String, dynamic>> fuelRecords;
+  final double fuelTankCapacityLiters;
+
+  static const List<Map<String, dynamic>> defaultFuelRecords = [
+    {
+      'id': 'fuel_3',
+      'date': '18 Sep, 06:30 PM',
+      'lastOdoKm': 14280.0,
+      'currentOdoKm': 14560.0,
+      'liters': 11.8,
+      'kmPerLiter': 23.7,
+    },
+    {
+      'id': 'fuel_2',
+      'date': '12 Sep, 08:15 AM',
+      'lastOdoKm': 13990.0,
+      'currentOdoKm': 14280.0,
+      'liters': 12.2,
+      'kmPerLiter': 23.8,
+    },
+    {
+      'id': 'fuel_1',
+      'date': '05 Sep, 05:45 PM',
+      'lastOdoKm': 13710.0,
+      'currentOdoKm': 13990.0,
+      'liters': 11.5,
+      'kmPerLiter': 24.3,
+    },
+  ];
 
   static const List<Map<String, dynamic>> defaultRecentRides = [
     {
@@ -83,6 +116,7 @@ class HudAppState {
     this.phoneConnected = false,
     this.themeMode = ThemeMode.dark,
     this.accentColor = 'blue',
+    this.userName = 'Praneeth',
     required this.musicState,
     this.currentScreen = HudScreen.dashboard,
     this.callState = const CallState(),
@@ -93,6 +127,9 @@ class HudAppState {
     this.rideAvgSpeed = 0,
     this.rideMaxSpeed = 0,
     this.recentRides = defaultRecentRides,
+    this.totalOdoKm = 14820.0,
+    this.fuelRecords = defaultFuelRecords,
+    this.fuelTankCapacityLiters = 13.5,
   });
 
   HudTheme get theme {
@@ -111,6 +148,7 @@ class HudAppState {
     bool? phoneConnected,
     ThemeMode? themeMode,
     String? accentColor,
+    String? userName,
     CallState? callState,
     MusicState? musicState,
     HudScreen? currentScreen,
@@ -121,6 +159,9 @@ class HudAppState {
     int? rideAvgSpeed,
     int? rideMaxSpeed,
     List<Map<String, dynamic>>? recentRides,
+    double? totalOdoKm,
+    List<Map<String, dynamic>>? fuelRecords,
+    double? fuelTankCapacityLiters,
   }) {
     return HudAppState(
       speed: speed ?? this.speed,
@@ -132,6 +173,7 @@ class HudAppState {
       phoneConnected: phoneConnected ?? this.phoneConnected,
       themeMode: themeMode ?? this.themeMode,
       accentColor: accentColor ?? this.accentColor,
+      userName: userName ?? this.userName,
       musicState: musicState ?? this.musicState,
       currentScreen: currentScreen ?? this.currentScreen,
       callState: callState ?? this.callState,
@@ -142,6 +184,9 @@ class HudAppState {
       rideAvgSpeed: rideAvgSpeed ?? this.rideAvgSpeed,
       rideMaxSpeed: rideMaxSpeed ?? this.rideMaxSpeed,
       recentRides: recentRides ?? this.recentRides,
+      totalOdoKm: totalOdoKm ?? this.totalOdoKm,
+      fuelRecords: fuelRecords ?? this.fuelRecords,
+      fuelTankCapacityLiters: fuelTankCapacityLiters ?? this.fuelTankCapacityLiters,
     );
   }
 }

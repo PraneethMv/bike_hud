@@ -3,8 +3,13 @@ import '../models/hud_theme.dart';
 
 class DocumentsPanel extends StatefulWidget {
   final HudTheme theme;
+  final bool isEmbedded;
 
-  const DocumentsPanel({super.key, required this.theme});
+  const DocumentsPanel({
+    super.key,
+    required this.theme,
+    this.isEmbedded = false,
+  });
 
   @override
   State<DocumentsPanel> createState() => _DocumentsPanelState();
@@ -78,19 +83,8 @@ class _DocumentsPanelState extends State<DocumentsPanel> {
   Widget build(BuildContext context) {
     final selectedDoc = _docs[_selectedDocIndex];
 
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: widget.theme.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: widget.theme.outlineVariant.withValues(alpha: 0.25),
-        ),
-      ),
-      child: Column(
-        children: [
+    final content = Column(
+      children: [
           // Header Bar
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -406,7 +400,24 @@ class _DocumentsPanelState extends State<DocumentsPanel> {
             ),
           ),
         ],
+      );
+
+    if (widget.isEmbedded) {
+      return content;
+    }
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: widget.theme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: widget.theme.outlineVariant.withValues(alpha: 0.25),
+        ),
       ),
+      child: content,
     );
   }
 

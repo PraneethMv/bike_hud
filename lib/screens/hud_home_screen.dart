@@ -242,6 +242,30 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
     return '$hour:$min $amPm';
   }
 
+  void _recordRefuel(double liters, double lastOdo, double currentOdo) {
+    final distance = (currentOdo - lastOdo).clamp(1.0, 9999.0);
+    final kmPerL = double.parse((distance / liters).toStringAsFixed(1));
+    final now = DateTime.now();
+    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final amPm = now.hour >= 12 ? 'PM' : 'AM';
+    final min = now.minute.toString().padLeft(2, '0');
+
+    final newRecord = {
+      'id': 'fuel_${DateTime.now().millisecondsSinceEpoch}',
+      'date': 'Today, $hour:$min $amPm',
+      'lastOdoKm': lastOdo,
+      'currentOdoKm': currentOdo,
+      'liters': liters,
+      'kmPerLiter': kmPerL,
+    };
+
+    setState(() {
+      hudState = hudState.copyWith(
+        fuelRecords: [newRecord, ...hudState.fuelRecords],
+      );
+    });
+  }
+
   @override
   void dispose() {
     _gpsSimulatorService.stop();
@@ -351,10 +375,11 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
         });
         break;
 
+      case HandlebarAction.openRides:
       case HandlebarAction.openDocuments:
         setState(() {
           _openConnectivitySettings = false;
-          hudState = hudState.copyWith(currentScreen: HudScreen.documents);
+          hudState = hudState.copyWith(currentScreen: HudScreen.rides);
         });
         break;
 
@@ -471,6 +496,16 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
                               onStartRide: _startRideCapture,
                               onEndRide: _endRideCapture,
                               recentRides: hudState.recentRides,
+                              userName: hudState.userName,
+                              fuelRecords: hudState.fuelRecords,
+                              currentOdoKm: hudState.totalOdoKm,
+                              onRecordRefuel: _recordRefuel,
+                              fuelTankCapacityLiters: hudState.fuelTankCapacityLiters,
+                              onOdoUpdated: (newOdo) {
+                                setState(() {
+                                  hudState = hudState.copyWith(totalOdoKm: newOdo);
+                                });
+                              },
                             ),
                           ),
                           if (hudState.currentScreen == HudScreen.dashboard) ...[

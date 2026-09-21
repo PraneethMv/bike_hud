@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
-import 'screens/hud_home_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
-  runApp(const BikeHudApp());
+  runApp(const RevHudApp());
 }
 
-class BikeHudApp extends StatelessWidget {
-  const BikeHudApp({super.key});
+class RevHudApp extends StatelessWidget {
+  const RevHudApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bike HUD Alpha',
+      title: 'Rev HUD',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
-      home: const HudHomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
+
+// Backward compatibility alias
+typedef BikeHudApp = RevHudApp;

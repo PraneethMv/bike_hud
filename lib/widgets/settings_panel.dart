@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/hud_theme.dart';
 import '../services/bluetooth_service.dart';
+import '../screens/splash_screen.dart';
+import 'documents_panel.dart';
 
 enum SettingsSection {
   display,
-  alerts,
+  vehicleInfo,
+  documents,
   connectivity,
   system,
 }
@@ -20,6 +23,10 @@ class SettingsPanel extends StatefulWidget {
   final String accentColor;
   final ValueChanged<String>? onAccentColorChanged;
   final List<Map<String, dynamic>>? recentRides;
+  final String userName;
+  final double fuelTankCapacityLiters;
+  final double currentOdoKm;
+  final ValueChanged<double>? onOdoUpdated;
 
   const SettingsPanel({
     super.key,
@@ -32,6 +39,10 @@ class SettingsPanel extends StatefulWidget {
     this.accentColor = 'blue',
     this.onAccentColorChanged,
     this.recentRides,
+    this.userName = 'Praneeth',
+    this.fuelTankCapacityLiters = 13.5,
+    this.currentOdoKm = 14820.0,
+    this.onOdoUpdated,
   });
 
   @override
@@ -48,10 +59,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
   String _speedUnit = 'km/h';
   String _tempUnit = '°C';
 
-  // Alerts & ride stats options
+  // Vehicle Information & Alerts options
+  bool _overspeedWarningEnabled = true;
   int _speedAlertThreshold = 80;
   bool _audioChimes = true;
-  bool _isSendingRideData = false;
+  double? _previousOdoKm;
 
   // Bluetooth scanning & state
   bool _bluetoothEnabled = true;
@@ -61,6 +73,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   String? _pairedDeviceName;
   Timer? _scanTimer;
   Timer? _connectTimer;
+  Timer? _undoTimeoutTimer;
 
   // OTA state
   bool _isCheckingOta = false;
@@ -118,6 +131,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   void dispose() {
     _scanTimer?.cancel();
     _connectTimer?.cancel();
+    _undoTimeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -332,6 +346,335 @@ class _SettingsPanelState extends State<SettingsPanel> {
     });
   }
 
+  void _undoOdoOverride([double? fallbackOdo]) {
+    _undoTimeoutTimer?.cancel();
+    final targetOdo = _previousOdoKm ?? fallbackOdo;
+    if (targetOdo != null) {
+      widget.onOdoUpdated?.call(targetOdo);
+    }
+    if (mounted) {
+      setState(() {
+        _previousOdoKm = null;
+      });
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'HUD Odometer reverted to ${targetOdo?.toStringAsFixed(1) ?? ""} km',
+            style: const TextStyle(fontFamily: 'Space Grotesk'),
+          ),
+          backgroundColor: widget.theme.primaryContainer,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showOdoSyncDialog() {
+    final theme = widget.theme;
+    double candidateOdo = widget.currentOdoKm >= 15240.0 ? widget.currentOdoKm + 350.0 : 15240.0;
+    final TextEditingController textController = TextEditingController(text: candidateOdo.toStringAsFixed(1));
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final enteredVal = double.tryParse(textController.text) ?? candidateOdo;
+            final isLower = enteredVal < widget.currentOdoKm;
+            final diff = enteredVal - widget.currentOdoKm;
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              child: Container(
+                width: 480,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: theme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: theme.primary.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      blurRadius: 24,
+                      spreadRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: theme.primaryContainer,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.phonelink_setup_rounded, color: theme.primary, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'SYNC CLUSTER ODOMETER',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                            color: theme.onSurface,
+                            fontFamily: 'Space Grotesk',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Synchronize the high-accuracy odometer value recorded from your vehicle\'s integrated instrument cluster via Rev Companion App.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.onSurfaceVariant,
+                        fontFamily: 'Space Grotesk',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Comparison card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Current HUD ODO',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    color: theme.onSurfaceVariant,
+                                    fontFamily: 'Space Grotesk',
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${widget.currentOdoKm.toStringAsFixed(1)} km',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.onSurface,
+                                    fontFamily: 'Space Grotesk',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_rounded, size: 16, color: theme.outline),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Companion Reading',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    color: theme.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Space Grotesk',
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${enteredVal.toStringAsFixed(1)} km',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.primary,
+                                    fontFamily: 'Space Grotesk',
+                                  ),
+                                ),
+                                Text(
+                                  diff >= 0
+                                      ? '+${diff.toStringAsFixed(1)} km'
+                                      : '${diff.toStringAsFixed(1)} km',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: diff >= 0 ? Colors.tealAccent : Colors.orangeAccent,
+                                    fontFamily: 'Space Grotesk',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Warning if lower
+                    if (isLower) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Warning: Phone reading is lower than current HUD ODO. Vehicle cluster reading should normally only increase.',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  color: Colors.amber.shade200,
+                                  fontFamily: 'Space Grotesk',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    // Quick presets
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        Text(
+                          'Simulate Cluster Input:',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: theme.onSurfaceVariant,
+                            fontFamily: 'Space Grotesk',
+                          ),
+                        ),
+                        for (final offset in [100.0, 420.0, -100.0])
+                          GestureDetector(
+                            onTap: () {
+                              final newVal = (widget.currentOdoKm + offset).clamp(0.0, 999999.0);
+                              textController.text = newVal.toStringAsFixed(1);
+                              setDialogState(() {});
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: theme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                offset > 0 ? '+${offset.toInt()} km' : '${offset.toInt()} km',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.onSurface,
+                                  fontFamily: 'Space Grotesk',
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    // Action buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: Text(
+                              'CANCEL',
+                              style: TextStyle(
+                                color: theme.onSurfaceVariant,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Space Grotesk',
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final finalVal = double.tryParse(textController.text) ?? candidateOdo;
+                              final prevOdo = widget.currentOdoKm;
+                              Navigator.of(dialogContext).pop();
+
+                              _undoTimeoutTimer?.cancel();
+                              if (mounted) {
+                                setState(() {
+                                  _previousOdoKm = prevOdo;
+                                });
+                              }
+                              _undoTimeoutTimer = Timer(const Duration(seconds: 5), () {
+                                if (mounted) {
+                                  setState(() {
+                                    _previousOdoKm = null;
+                                  });
+                                }
+                              });
+
+                              widget.onOdoUpdated?.call(finalVal);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'HUD Odometer synced to ${finalVal.toStringAsFixed(1)} km from phone app.',
+                                      style: const TextStyle(fontFamily: 'Space Grotesk'),
+                                    ),
+                                    action: SnackBarAction(
+                                      label: 'UNDO',
+                                      textColor: theme.primary,
+                                      onPressed: () => _undoOdoOverride(prevOdo),
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 5),
+                                    backgroundColor: theme.surfaceContainerHighest,
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primary,
+                              foregroundColor: theme.onPrimary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text(
+                              'SYNC & OVERRIDE',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Space Grotesk',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
@@ -398,7 +741,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'AeroHUD Automotive',
+                    'Rev HUD OS',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
@@ -407,7 +750,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ),
                   ),
                   Text(
-                    'Version 2.4.0 • Build 8402',
+                    'RevHUD - v0.1a • Build 8402',
                     style: TextStyle(
                       fontSize: 9.5,
                       color: theme.outline,
@@ -438,9 +781,16 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ),
                       const SizedBox(height: 6),
                       _buildMenuCategory(
-                        section: SettingsSection.alerts,
-                        icon: Icons.analytics_rounded,
-                        label: 'Ride Statistics & Alerts',
+                        section: SettingsSection.vehicleInfo,
+                        icon: Icons.two_wheeler_rounded,
+                        label: 'Vehicle Information',
+                        theme: theme,
+                      ),
+                      const SizedBox(height: 6),
+                      _buildMenuCategory(
+                        section: SettingsSection.documents,
+                        icon: Icons.badge_outlined,
+                        label: 'Vehicle Documents',
                         theme: theme,
                       ),
                       const SizedBox(height: 6),
@@ -473,9 +823,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         color: theme.outlineVariant.withValues(alpha: 0.25),
                       ),
                     ),
-                    child: SingleChildScrollView(
-                      child: _buildSelectedSectionContent(theme),
-                    ),
+                    child: _activeSection == SettingsSection.documents
+                        ? DocumentsPanel(theme: theme, isEmbedded: true)
+                        : SingleChildScrollView(
+                            child: _buildSelectedSectionContent(theme),
+                          ),
                   ),
                 ),
               ],
@@ -597,8 +949,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
     switch (_activeSection) {
       case SettingsSection.display:
         return _buildDisplaySection(theme);
-      case SettingsSection.alerts:
-        return _buildAlertsSection(theme);
+      case SettingsSection.vehicleInfo:
+        return _buildVehicleInfoSection(theme);
+      case SettingsSection.documents:
+        return DocumentsPanel(theme: theme, isEmbedded: true);
       case SettingsSection.connectivity:
         return _buildConnectivitySection(theme);
       case SettingsSection.system:
@@ -984,86 +1338,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  // Recent 5 Rides Data
-  final List<Map<String, dynamic>> _recentRides = const [
-    {
-      'title': 'Ride #5',
-      'date': 'Today, 08:30 AM',
-      'duration': '42 min',
-      'distanceKm': 24.6,
-      'avgSpeedKm': 35,
-      'topSpeedKm': 78,
-    },
-    {
-      'title': 'Ride #4',
-      'date': 'Yesterday, 06:15 PM',
-      'duration': '1h 15m',
-      'distanceKm': 52.3,
-      'avgSpeedKm': 42,
-      'topSpeedKm': 92,
-    },
-    {
-      'title': 'Ride #3',
-      'date': '19 Sep, 07:45 AM',
-      'duration': '28 min',
-      'distanceKm': 16.8,
-      'avgSpeedKm': 36,
-      'topSpeedKm': 68,
-    },
-    {
-      'title': 'Ride #2',
-      'date': '18 Sep, 05:20 PM',
-      'duration': '54 min',
-      'distanceKm': 38.2,
-      'avgSpeedKm': 42,
-      'topSpeedKm': 86,
-    },
-    {
-      'title': 'Ride #1',
-      'date': '17 Sep, 09:10 AM',
-      'duration': '1h 02m',
-      'distanceKm': 45.0,
-      'avgSpeedKm': 43,
-      'topSpeedKm': 94,
-    },
-  ];
+  // Section 2: Vehicle Information & Safety Alerts
+  Widget _buildVehicleInfoSection(HudTheme theme) {
+    final gallons = widget.fuelTankCapacityLiters * 0.264172;
 
-  void _sendDataToPhone() {
-    if (_isSendingRideData) return;
-    setState(() => _isSendingRideData = true);
-
-    Timer(const Duration(milliseconds: 900), () {
-      if (mounted) {
-        setState(() => _isSendingRideData = false);
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.phoneConnected
-                  ? 'Ride statistics successfully synced with paired phone'
-                  : 'Ride data saved locally — will auto-sync when phone connects via Bluetooth',
-              style: const TextStyle(fontFamily: 'Space Grotesk'),
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-            backgroundColor: widget.theme.primaryContainer,
-          ),
-        );
-      }
-    });
-  }
-
-  // Section 2: Ride Statistics & Alerts
-  Widget _buildAlertsSection(HudTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.analytics_rounded, size: 16, color: theme.primary),
+            Icon(Icons.two_wheeler_rounded, size: 16, color: theme.primary),
             const SizedBox(width: 8),
             Text(
-              'Ride Statistics & Alerts',
+              'Vehicle Information & Safety Alerts',
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.bold,
@@ -1075,7 +1362,102 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ),
         const SizedBox(height: 12),
 
-        // 1. Ride Statistics Card (Last 5 Sessions)
+        // 1. Full Tank Capacity Card (Read-only from phone)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: theme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.local_gas_station_rounded, size: 20, color: theme.onPrimaryContainer),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Full Tank Capacity',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: theme.onSurface,
+                            fontFamily: 'Space Grotesk',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            'READ-ONLY',
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                              color: theme.outline,
+                              fontFamily: 'Space Grotesk',
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Configured via Rev Companion Mobile App',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.onSurfaceVariant,
+                        fontFamily: 'Space Grotesk',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${widget.fuelTankCapacityLiters.toStringAsFixed(1)} L',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: theme.primary,
+                      fontFamily: 'Space Grotesk',
+                    ),
+                  ),
+                  Text(
+                    '${gallons.toStringAsFixed(2)} Gal',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.onSurfaceVariant,
+                      fontFamily: 'Space Grotesk',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. Vehicle ODO Override Card (with Failsafe Undo)
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -1086,19 +1468,26 @@ class _SettingsPanelState extends State<SettingsPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Heading Row with "Send Data to Phone" action
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.insights_rounded, size: 15, color: theme.primary),
-                      const SizedBox(width: 8),
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: theme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.av_timer_rounded, size: 20, color: theme.onPrimaryContainer),
+                      ),
+                      const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Ride Statistics',
+                            'Vehicle ODO Override',
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.bold,
@@ -1107,107 +1496,85 @@ class _SettingsPanelState extends State<SettingsPanel> {
                             ),
                           ),
                           Text(
-                            'Last 5 sessions (ignition on → shutdown)',
-                            style: TextStyle(fontSize: 9.5, color: theme.onSurfaceVariant, fontFamily: 'Space Grotesk'),
+                            'Sync cluster reading from phone app (cluster is more accurate than GPS)',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: theme.onSurfaceVariant,
+                              fontFamily: 'Space Grotesk',
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  ElevatedButton.icon(
-                    onPressed: _isSendingRideData ? null : _sendDataToPhone,
-                    icon: _isSendingRideData
-                        ? SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: theme.onPrimary),
-                          )
-                        : Icon(Icons.send_to_mobile_rounded, size: 13, color: theme.onPrimary),
-                    label: Text(
-                      _isSendingRideData ? 'Syncing...' : 'Send Data to Phone',
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primary,
-                      foregroundColor: theme.onPrimary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      elevation: 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Recent 5 Rides List
-              ...(widget.recentRides ?? _recentRides).take(5).map((ride) {
-                final dist = _speedUnit == 'mph'
-                    ? '${((ride['distanceKm'] as double) * 0.621371).toStringAsFixed(1)} mi'
-                    : '${(ride['distanceKm'] as double).toStringAsFixed(1)} km';
-                final avg = _speedUnit == 'mph'
-                    ? '${((ride['avgSpeedKm'] as int) * 0.621371).round()} mph'
-                    : '${ride['avgSpeedKm']} km/h';
-                final top = _speedUnit == 'mph'
-                    ? '${((ride['topSpeedKm'] as int) * 0.621371).round()} mph'
-                    : '${ride['topSpeedKm']} km/h';
-
-                return Container(
-                  margin: const EdgeInsets.only(top: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: theme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      SizedBox(
-                        width: 115,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              ride['title'] as String,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: theme.onSurface,
-                                fontFamily: 'Space Grotesk',
-                              ),
-                            ),
-                            Text(
-                              ride['date'] as String,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                color: theme.outline,
-                                fontFamily: 'Space Grotesk',
-                              ),
-                            ),
-                          ],
+                      Text(
+                        '${widget.currentOdoKm.toStringAsFixed(1)} km',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: theme.primary,
+                          fontFamily: 'Space Grotesk',
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildRideStatCol('RIDE TIME', ride['duration'] as String, Icons.timer_outlined, theme),
-                            _buildRideStatCol('DISTANCE', dist, Icons.straighten_rounded, theme),
-                            _buildRideStatCol('AVG SPEED', avg, Icons.speed_rounded, theme),
-                            _buildRideStatCol('TOP SPEED', top, Icons.bolt_rounded, theme, isAccent: true),
-                          ],
+                      Text(
+                        'HUD Total ODO',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: theme.onSurfaceVariant,
+                          fontFamily: 'Space Grotesk',
                         ),
                       ),
                     ],
                   ),
-                );
-              }),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Buttons row: Sync & Undo
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _showOdoSyncDialog,
+                    icon: const Icon(Icons.sync_rounded, size: 14),
+                    label: const Text(
+                      'Sync ODO from Phone',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Space Grotesk'),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primary,
+                      foregroundColor: theme.onPrimary,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                  ),
+                  if (_previousOdoKm != null)
+                    OutlinedButton.icon(
+                      onPressed: _undoOdoOverride,
+                      icon: const Icon(Icons.undo_rounded, size: 14),
+                      label: Text(
+                        'Undo Override (${_previousOdoKm!.toStringAsFixed(1)} km)',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Space Grotesk'),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orangeAccent,
+                        side: const BorderSide(color: Colors.orangeAccent, width: 1.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
         const SizedBox(height: 12),
 
-        // 2. Overspeed Warning Alert Card
+        // 3. Overspeed Warning Alert Card (with Master Toggle)
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -1234,61 +1601,87 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ),
                       ),
                       Text(
-                        'Pulsing visual alert on speedometer when riding above threshold',
-                        style: TextStyle(fontSize: 10, color: theme.onSurfaceVariant, fontFamily: 'Space Grotesk'),
+                        _overspeedWarningEnabled
+                            ? 'Pulsing visual alert on speedometer when riding above threshold'
+                            : 'Alert disabled — speedometer will not pulse when over speed limit',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: theme.onSurfaceVariant,
+                          fontFamily: 'Space Grotesk',
+                        ),
                       ),
                     ],
                   ),
-                  Text(
-                    '$_speedAlertThreshold $_speedUnit',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: theme.primary,
-                      fontFamily: 'Space Grotesk',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [50, 60, 80, 100].map((limit) {
-                  final isSel = _speedAlertThreshold == limit;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _speedAlertThreshold = limit),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isSel ? theme.primaryContainer : theme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: isSel ? theme.primary : theme.outlineVariant.withValues(alpha: 0.2),
+                  Row(
+                    children: [
+                      if (_overspeedWarningEnabled)
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: theme.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
                           ),
-                        ),
-                        child: Center(
                           child: Text(
-                            '$limit $_speedUnit',
+                            '$_speedAlertThreshold $_speedUnit',
                             style: TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: isSel ? theme.onPrimaryContainer : theme.outline,
+                              color: theme.onPrimaryContainer,
                               fontFamily: 'Space Grotesk',
                             ),
                           ),
                         ),
+                      Switch(
+                        value: _overspeedWarningEnabled,
+                        activeThumbColor: theme.primary,
+                        onChanged: (val) => setState(() => _overspeedWarningEnabled = val),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    ],
+                  ),
+                ],
               ),
+              if (_overspeedWarningEnabled) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [50, 60, 80, 100].map((limit) {
+                    final isSel = _speedAlertThreshold == limit;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _speedAlertThreshold = limit),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSel ? theme.primaryContainer : theme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: isSel ? theme.primary : theme.outlineVariant.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$limit $_speedUnit',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: isSel ? theme.onPrimaryContainer : theme.outline,
+                                fontFamily: 'Space Grotesk',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 12),
 
-        // 3. Audio Voice & Turn Prompts Toggle
+        // 4. Audio Voice & Turn Prompts Toggle
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
@@ -1324,42 +1717,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
-  Widget _buildRideStatCol(String label, String value, IconData icon, HudTheme theme, {bool isAccent = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 9.5, color: theme.outline),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: theme.outline,
-                fontFamily: 'Space Grotesk',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.bold,
-            color: isAccent ? theme.primary : theme.onSurface,
-            fontFamily: 'Space Grotesk',
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Section 3: Bluetooth & Connectivity
+  // Section 4: Bluetooth
   Widget _buildConnectivitySection(HudTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1702,7 +2060,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.onSurface, fontFamily: 'Space Grotesk'),
                       ),
                       Text(
-                        _otaSuccess ? 'Your AeroHUD unit is up to date' : 'Check for latest automotive OTA updates',
+                        _otaSuccess ? 'Your Rev HUD unit is up to date' : 'Check for latest automotive OTA updates',
                         style: TextStyle(fontSize: 10, color: theme.onSurfaceVariant, fontFamily: 'Space Grotesk'),
                       ),
                     ],
@@ -1721,6 +2079,74 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 child: Text(
                   _isCheckingOta ? 'Checking...' : (_otaSuccess ? 'Up to date' : 'Check Updates'),
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 4. Startup & Boot Display Preview Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: theme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.speed_rounded, size: 18, color: theme.onPrimaryContainer),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Startup Display',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.onSurface, fontFamily: 'Space Grotesk'),
+                      ),
+                      Text(
+                        'Aesthetic Rev HUD boot screen & SBC diagnostics',
+                        style: TextStyle(fontSize: 10, color: theme.onSurfaceVariant, fontFamily: 'Space Grotesk'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          SplashScreen(
+                        userName: widget.userName,
+                        onFinished: () => Navigator.of(context).pop(),
+                      ),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                label: const Text('Preview Splash', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primary,
+                  foregroundColor: theme.onPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  elevation: 0,
                 ),
               ),
             ],
