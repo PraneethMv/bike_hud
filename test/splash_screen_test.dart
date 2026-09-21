@@ -47,7 +47,7 @@ void main() {
 
       expect(find.byType(RevHudLogo), findsOneWidget);
       expect(find.text('Welcome, Praneeth'), findsOneWidget);
-      expect(find.text('RevOS - v0.1a'), findsOneWidget);
+      expect(find.text('RevHUD - v0.1.0'), findsOneWidget);
       expect(find.text('Initializing...'), findsOneWidget);
 
       // Let animation finish

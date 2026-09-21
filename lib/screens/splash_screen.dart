@@ -198,7 +198,7 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 22),
                   child: Text(
-                    'RevOS - v0.1a',
+                    'RevHUD - v0.1.0',
                     style: TextStyle(
                       fontFamily: 'Space Grotesk',
                       fontSize: 11.5,

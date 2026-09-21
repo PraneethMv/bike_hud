@@ -750,7 +750,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ),
                   ),
                   Text(
-                    'RevHUD - v0.1a • Build 8402',
+                    'RevHUD - v0.1.0 • Build 8402',
                     style: TextStyle(
                       fontSize: 9.5,
                       color: theme.outline,
