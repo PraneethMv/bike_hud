@@ -27,6 +27,8 @@ class SettingsPanel extends StatefulWidget {
   final double fuelTankCapacityLiters;
   final double currentOdoKm;
   final ValueChanged<double>? onOdoUpdated;
+  final String vehicleModel;
+  final String fuelType;
 
   const SettingsPanel({
     super.key,
@@ -43,6 +45,8 @@ class SettingsPanel extends StatefulWidget {
     this.fuelTankCapacityLiters = 13.5,
     this.currentOdoKm = 14820.0,
     this.onOdoUpdated,
+    this.vehicleModel = 'Triumph Speed 400',
+    this.fuelType = 'Petrol',
   });
 
   @override
@@ -1362,7 +1366,134 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ),
         const SizedBox(height: 12),
 
-        // 1. Full Tank Capacity Card (Read-only from phone)
+        // 1. Vehicle Model & Fuel Type Card (Read-only from phone)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: theme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.two_wheeler_rounded, size: 20, color: theme.onPrimaryContainer),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Vehicle Model',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.onSurface,
+                                  fontFamily: 'Space Grotesk',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.4)),
+                                ),
+                                child: Text(
+                                  'READ-ONLY',
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.outline,
+                                    fontFamily: 'Space Grotesk',
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Synced from Rev Companion Mobile App',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.onSurfaceVariant,
+                              fontFamily: 'Space Grotesk',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Text(
+                    widget.vehicleModel,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.bold,
+                      color: theme.primary,
+                      fontFamily: 'Space Grotesk',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: theme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.outlineVariant.withValues(alpha: 0.15)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.local_gas_station_outlined, size: 14, color: theme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Fuel Type',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.onSurfaceVariant,
+                            fontFamily: 'Space Grotesk',
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      widget.fuelType,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: theme.onSurface,
+                        fontFamily: 'Space Grotesk',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. Full Tank Capacity Card (Read-only from phone)
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(

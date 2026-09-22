@@ -52,6 +52,8 @@ class MainPanel extends StatelessWidget {
     this.onRecordRefuel,
     this.fuelTankCapacityLiters = 13.5,
     this.onOdoUpdated,
+    this.vehicleModel = 'Triumph Speed 400',
+    this.fuelType = 'Petrol',
   });
 
   final bool initialShowConnectivity;
@@ -73,6 +75,8 @@ class MainPanel extends StatelessWidget {
   final void Function(double liters, double lastOdo, double currentOdo)? onRecordRefuel;
   final double fuelTankCapacityLiters;
   final ValueChanged<double>? onOdoUpdated;
+  final String vehicleModel;
+  final String fuelType;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +128,8 @@ class MainPanel extends StatelessWidget {
           fuelTankCapacityLiters: fuelTankCapacityLiters,
           currentOdoKm: currentOdoKm ?? 14820.0,
           onOdoUpdated: onOdoUpdated,
+          vehicleModel: vehicleModel,
+          fuelType: fuelType,
         );
     }
   }

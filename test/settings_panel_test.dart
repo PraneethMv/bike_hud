@@ -55,6 +55,10 @@ void main() {
     await tester.tap(find.text('Vehicle Information'));
     await tester.pumpAndSettle();
     expect(find.text('Vehicle Information & Safety Alerts'), findsOneWidget);
+    expect(find.text('Vehicle Model'), findsOneWidget);
+    expect(find.text('Triumph Speed 400'), findsOneWidget);
+    expect(find.text('Fuel Type'), findsOneWidget);
+    expect(find.text('Petrol'), findsOneWidget);
     expect(find.text('Full Tank Capacity'), findsOneWidget);
     expect(find.text('13.5 L'), findsOneWidget);
     expect(find.text('Vehicle ODO Override'), findsOneWidget);

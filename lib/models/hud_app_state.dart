@@ -35,6 +35,8 @@ class HudAppState {
   final double totalOdoKm;
   final List<Map<String, dynamic>> fuelRecords;
   final double fuelTankCapacityLiters;
+  final String vehicleModel;
+  final String fuelType;
 
   static const List<Map<String, dynamic>> defaultFuelRecords = [
     {
@@ -130,6 +132,8 @@ class HudAppState {
     this.totalOdoKm = 14820.0,
     this.fuelRecords = defaultFuelRecords,
     this.fuelTankCapacityLiters = 13.5,
+    this.vehicleModel = 'Triumph Speed 400',
+    this.fuelType = 'Petrol',
   });
 
   HudTheme get theme {
@@ -162,6 +166,8 @@ class HudAppState {
     double? totalOdoKm,
     List<Map<String, dynamic>>? fuelRecords,
     double? fuelTankCapacityLiters,
+    String? vehicleModel,
+    String? fuelType,
   }) {
     return HudAppState(
       speed: speed ?? this.speed,
@@ -187,6 +193,8 @@ class HudAppState {
       totalOdoKm: totalOdoKm ?? this.totalOdoKm,
       fuelRecords: fuelRecords ?? this.fuelRecords,
       fuelTankCapacityLiters: fuelTankCapacityLiters ?? this.fuelTankCapacityLiters,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      fuelType: fuelType ?? this.fuelType,
     );
   }
 }

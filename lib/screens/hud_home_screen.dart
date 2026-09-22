@@ -501,6 +501,8 @@ class _HudHomeScreenState extends State<HudHomeScreen> {
                               currentOdoKm: hudState.totalOdoKm,
                               onRecordRefuel: _recordRefuel,
                               fuelTankCapacityLiters: hudState.fuelTankCapacityLiters,
+                              vehicleModel: hudState.vehicleModel,
+                              fuelType: hudState.fuelType,
                               onOdoUpdated: (newOdo) {
                                 setState(() {
                                   hudState = hudState.copyWith(totalOdoKm: newOdo);
